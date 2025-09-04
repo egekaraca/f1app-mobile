@@ -11,6 +11,9 @@ export default function Home() {
       <Link href="/standings/constructors" style={{ color: "#2563eb", fontWeight: "600" }}>
         Constructor Standings
       </Link>
+      <Link href="/races" style={{ color: "#2563eb", fontWeight: "600" }}>
+        Races
+      </Link>
     </View>
   );
 }
