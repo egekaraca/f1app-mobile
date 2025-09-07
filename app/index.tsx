@@ -14,6 +14,7 @@ export default function Home() {
       <Link href="/races" style={{ color: "#2563eb", fontWeight: "600" }}>
         Races
       </Link>
+      <Link href="/constructors/mclaren" style={{ color: "#2563eb", fontWeight: "600" }} >McLaren Constructor Page</Link>
     </View>
   );
 }
