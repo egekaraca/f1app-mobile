@@ -8,10 +8,13 @@ import {
   StyleSheet,
   Dimensions,
   ImageSourcePropType,
+  TouchableOpacity,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { useQuery } from "@tanstack/react-query";
+import { Ionicons } from "@expo/vector-icons";
 import { getConstructorAssets } from "../../lib/constructorAssets";
+import { ConstructorLogo } from "../../components/ConstructorLogoSVG";
 import {
   getConstructorStandingForSeason,
   getConstructorDrivers,
@@ -191,14 +194,13 @@ export default function ConstructorDetailScreen() {
           flexDirection: "row",
           alignItems: "center",
           paddingHorizontal: 16,
-          paddingTop: 12,
-          paddingBottom: 8,
+          paddingTop: 48,
+          paddingBottom: 12,
         }}
       >
-        <Text onPress={() => router.back()} style={{ fontSize: 22, marginRight: 12 }}>
-          ←
-        </Text>
-        <Text style={{ fontSize: 18, fontWeight: "700" }}>{name}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 12, padding: 4 }}>
+          <Ionicons name="arrow-back" size={28} color="#000" />
+        </TouchableOpacity>
       </View>
 
       {/* İçerik — altta arka planla çakışmaması için extra paddingBottom */}
@@ -213,29 +215,37 @@ export default function ConstructorDetailScreen() {
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
-            alignItems: "center",
-            marginTop: 8,
+            alignItems: "flex-start",
+            marginTop: 60,
+            marginLeft: -20,
           }}
         >
-          <Image
-            source={assets.logo}
-            style={{ width: 90, height: 60, resizeMode: "contain" }}
-          />
-          <View style={{ gap: 10 }}>
-            {drivers.map((d: DriverLite) => (
+          <ConstructorLogo source={assets.logo} width={207} height={207} />
+          <View style={{ gap: 12, paddingRight: 20 }}>
+            {drivers.map((d: DriverLite, idx) => (
               <View
                 key={d.driverId}
-                style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+                style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
               >
-                <Text style={{ fontSize: 38, fontWeight: "900", color: assets.color }}>
-                  {d.permanentNumber ?? d.code ?? ""}
-                </Text>
+                <Image
+                  source={{ 
+                    uri: idx === 0 
+                      ? 'https://via.placeholder.com/54x43' 
+                      : 'https://via.placeholder.com/54x43'
+                  }}
+                  style={{ width: 54, height: 43, borderRadius: 8, marginRight: 8 }}
+                />
                 <View>
-                  <Text style={{ fontWeight: "800" }}>
-                    {d.givenName} {d.familyName}
-                  </Text>
-                  <Text style={{ opacity: 0.7 }}>
-                    {flagFromNationality(d.nationality)} {d.nationality ?? ""}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700" }}>
+                      {d.givenName} {d.familyName}
+                    </Text>
+                    <Text style={{ fontSize: 8 }}>
+                      {flagFromNationality(d.nationality)}
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 8, color: "#666" }}>
+                    {getLocationForDriver(d.familyName)}
                   </Text>
                 </View>
               </View>
@@ -244,13 +254,13 @@ export default function ConstructorDetailScreen() {
         </View>
 
         {/* Title */}
-        <Text style={{ marginTop: 16, fontSize: 24, fontWeight: "800" }}>
-          Constructor{"\n"}
-          <Text style={{ fontWeight: "900" }}>Stats</Text>
+        <Text style={{ marginTop: 40, fontSize: 24, fontWeight: "800" }}>
+          <Text style={{ fontSize: 24, fontWeight: "600" }}>Constructor</Text>
+          <Text style={{ fontSize: 24, fontWeight: "900" }}> Stats</Text>
         </Text>
 
         {/* Stats grid */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 14, marginTop: 12 }}>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 20, marginTop: 20, justifyContent: "space-between" }}>
           <StatPill label="Position" value={`#${standing.position}`} accent={assets.color} />
           <StatPill label="Years in F1" value={`${years}`} accent={assets.color} />
           <StatPill label="Points (2025)" value={`${standing.points}`} accent={assets.color} />
@@ -289,28 +299,52 @@ function StatPill({
   return (
     <View
       style={{
-        flexDirection: "row",
-        alignItems: "center",
-        borderRadius: 999,
-        backgroundColor: "#000",
-        paddingVertical: 10,
-        paddingHorizontal: 14,
-        gap: 10,
+        width: 160,
+        backgroundColor: "#fff",
+        borderRadius: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 3,
+        marginBottom: 16,
       }}
     >
       <View
         style={{
-          width: 40,
-          height: 40,
-          borderRadius: 20,
-          backgroundColor: "#fff",
+          width: 48,
+          height: 48,
+          borderRadius: 24,
+          backgroundColor: "#000",
+          position: "absolute",
+          left: 25,
+          top: 24,
           alignItems: "center",
           justifyContent: "center",
+          borderWidth: 2,
+          borderColor: accent,
         }}
       >
-        <Text style={{ fontWeight: "900" }}>{value}</Text>
+        <Text style={{ fontWeight: "900", color: accent, fontSize: 20 }}>
+          {value.split(' ')[0]}
+        </Text>
       </View>
-      <Text style={{ color: accent, fontWeight: "800" }}>{label}</Text>
+      <View style={{ padding: 24, paddingTop: 60 }}>
+        <Text 
+          style={{ color: accent, fontWeight: "700", fontSize: 16 }}
+          numberOfLines={2}
+        >
+          {label}
+        </Text>
+      </View>
     </View>
   );
+}
+
+function getLocationForDriver(familyName: string): string {
+  const locations: Record<string, string> = {
+    Norris: "London, UK",
+    Piastri: "Sydney, AU",
+  };
+  return locations[familyName] || "";
 }

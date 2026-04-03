@@ -32,11 +32,11 @@ export function ChampionshipPredictionCard({ onViewAll }: ChampionshipPrediction
   return (
     <View style={styles.container}>
       <LinearGradient
-        colors={['#7C3AED', '#8B5CF6']}
+        colors={['#7C3AED', '#fa221e']}
         style={styles.gradient}
       >
         <View style={styles.header}>
-          <Text style={styles.title}>🏆 AI Championship Predictions</Text>
+          <Text style={styles.title}>Championship Predictions</Text>
           <Text style={styles.subtitle}>Based on season performance & data analysis</Text>
         </View>
 
@@ -199,7 +199,7 @@ function PredictionLoadingCard() {
         style={styles.gradient}
       >
         <View style={styles.loadingContainer}>
-          <Text style={styles.title}>🏆 AI Championship Predictions</Text>
+          <Text style={styles.title}>Championship Predictions</Text>
           <Text style={styles.loadingText}>Analyzing season data...</Text>
           <View style={styles.loadingDots}>
             <Text style={styles.loadingDot}>●</Text>
@@ -220,7 +220,7 @@ function PredictionErrorCard() {
         style={styles.gradient}
       >
         <View style={styles.errorContainer}>
-          <Text style={styles.title}>🏆 AI Championship Predictions</Text>
+          <Text style={styles.title}>Championship Predictions</Text>
           <Text style={styles.errorText}>Unable to generate predictions</Text>
           <Text style={styles.errorSubtext}>Check your connection and try again</Text>
         </View>

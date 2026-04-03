@@ -17,7 +17,7 @@ export function ChampionshipCard({ topDrivers, topConstructors }: ChampionshipCa
       {/* Driver Championship */}
       <View style={styles.driverSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🏎️ Driver Championship</Text>
+          <Text style={styles.sectionTitle}>Driver Championship</Text>
           <TouchableOpacity onPress={() => router.push('/standings/drivers')}>
             <Text style={styles.viewAllText}>View All →</Text>
           </TouchableOpacity>
@@ -35,7 +35,7 @@ export function ChampionshipCard({ topDrivers, topConstructors }: ChampionshipCa
       {/* Constructor Championship */}
       <View style={styles.constructorSection}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>🏆 Constructor Championship</Text>
+          <Text style={styles.sectionTitle}>Constructor Championship</Text>
           <TouchableOpacity onPress={() => router.push('/standings/constructors')}>
             <Text style={styles.viewAllText}>View All →</Text>
           </TouchableOpacity>
