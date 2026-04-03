@@ -180,3 +180,44 @@ export async function getConstructorInfo(
     url: item.url,
   };
 }
+
+/* ————— Enhanced API functions for home screen ————— */
+
+export async function getTopDrivers(season: string, limit: number = 3): Promise<DriverStanding[]> {
+  const standings = await getDriverStandings(season);
+  return standings.slice(0, limit);
+}
+
+export async function getTopConstructors(season: string, limit: number = 3): Promise<ConstructorStanding[]> {
+  const standings = await getConstructorStandings(season);
+  return standings.slice(0, limit);
+}
+
+export async function getDriverStandingById(season: string, driverId: string): Promise<DriverStanding | null> {
+  const standings = await getDriverStandings(season);
+  return standings.find(s => s.Driver.driverId === driverId) || null;
+}
+
+export async function getNextRace(season: string): Promise<Race | null> {
+  const races = await getSeasonRaces(season);
+  const now = new Date();
+  
+  const upcomingRaces = races.filter(race => {
+    const raceDate = new Date(race.date);
+    return raceDate > now;
+  });
+  
+  return upcomingRaces.length > 0 ? upcomingRaces[0] : null;
+}
+
+export async function getLatestRaceResults(season: string): Promise<Race | null> {
+  const races = await getSeasonRaces(season);
+  const now = new Date();
+  
+  const completedRaces = races.filter(race => {
+    const raceDate = new Date(race.date);
+    return raceDate < now;
+  });
+  
+  return completedRaces.length > 0 ? completedRaces[completedRaces.length - 1] : null;
+}
