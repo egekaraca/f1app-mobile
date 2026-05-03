@@ -342,7 +342,9 @@ export async function getDriverCareerSummary(driverId: string): Promise<DriverCa
     yearRange: formatYearRange(data.seasons),
   }));
 
-  const careerSeasons = [...seasons].sort((a, b) => Number(b) - Number(a));
+  // Only include seasons where standing data actually exists — filters out API ghost entries
+  const validSeasons = results.filter((r): r is { season: string; standing: any } => r !== null).map(r => r.season);
+  const careerSeasons = [...validSeasons].sort((a, b) => Number(b) - Number(a));
 
   return { bestPosition, bestSeason, totalWins, seasonsInF1: seasons.length, careerSeasons, constructors };
 }

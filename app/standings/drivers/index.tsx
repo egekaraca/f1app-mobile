@@ -1,13 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, RefreshControl, ActivityIndicator, Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { getDriverStandings } from "../../../lib/api";
+import { getDriverStandings, getDriverById } from "../../../lib/api";
 import { getConstructorAssets } from "../../../lib/constructorAssets";
 import { getDriverPhoto } from "../../../lib/driverAssets";
 import { useSeason } from "../../../lib/SeasonContext";
@@ -16,14 +16,33 @@ import type { DriverStanding } from "../../../types/standings";
 // ─── Driver card ──────────────────────────────────────────────────
 function DriverCard({ item }: { item: DriverStanding }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [pending, setPending] = useState(false);
   const constructorId = item.Constructors?.[0]?.constructorId;
   const { color: teamColor } = getConstructorAssets(constructorId);
   const photo = getDriverPhoto(item.Driver.driverId);
 
+  const handlePress = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      await Promise.race([
+        queryClient.prefetchQuery({
+          queryKey: ['driver-info', item.Driver.driverId],
+          queryFn: () => getDriverById(item.Driver.driverId),
+          staleTime: 1000 * 60 * 60,
+        }),
+        new Promise(r => setTimeout(r, 700)),
+      ]);
+    } catch {}
+    router.push(`/drivers/${item.Driver.driverId}`);
+    setPending(false);
+  };
+
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/drivers/${item.Driver.driverId}`)}
+      onPress={handlePress}
       activeOpacity={0.85}
     >
       {/* Team color accent strip */}
@@ -39,22 +58,22 @@ function DriverCard({ item }: { item: DriverStanding }) {
         pointerEvents="none"
       />
 
-      {/* Driver photo — absolute, bottom right, bleeds to card edge */}
+      {/* Driver photo — extends to right edge, wider box shifts driver left */}
       {photo && (
         <View style={styles.photoBox}>
           <Image source={photo} style={styles.photo} resizeMode="contain" />
-          {/* Left-edge fade — soft, keeps name readable */}
+          {/* Left-edge fade — covers most of photo so long names stay on dark bg */}
           <LinearGradient
-            colors={['rgba(17,17,17,0.75)', 'rgba(17,17,17,0.2)', 'transparent']}
-            locations={[0, 0.3, 0.6]}
+            colors={['rgba(17,17,17,0.88)', 'rgba(17,17,17,0.38)', 'rgba(17,17,17,0.06)', 'transparent']}
+            locations={[0, 0.38, 0.62, 0.82]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={StyleSheet.absoluteFillObject}
             pointerEvents="none"
           />
-          {/* Vertical spotlight: dark top/bottom, bright centre */}
+          {/* Vertical fade — subtle, just softens top/bottom edges */}
           <LinearGradient
-            colors={['rgba(17,17,17,0.55)', 'transparent', 'transparent', 'rgba(17,17,17,0.45)']}
+            colors={['rgba(17,17,17,0.35)', 'transparent', 'transparent', 'rgba(17,17,17,0.25)']}
             locations={[0, 0.28, 0.65, 1]}
             start={{ x: 0, y: 0 }}
             end={{ x: 0, y: 1 }}
@@ -81,13 +100,13 @@ function DriverCard({ item }: { item: DriverStanding }) {
         </View>
       </View>
 
-      {/* Arrow — bottom right, shadow, no circle */}
-      <Ionicons
-        name="arrow-forward"
-        size={20}
-        color="rgba(255,255,255,0.85)"
-        style={styles.arrowIcon}
-      />
+      {/* Arrow / loading indicator — right center */}
+      <View style={styles.arrowWrap}>
+        {pending
+          ? <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" />
+          : <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.85)" style={styles.arrowIcon} />
+        }
+      </View>
     </TouchableOpacity>
   );
 }
@@ -98,7 +117,7 @@ export default function DriverStandingsScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["driver-standings", season],
     queryFn: () => getDriverStandings(season),
-    staleTime: 1000 * 60 * 5,
+    staleTime: Infinity,
   });
 
   if (isLoading) {
@@ -143,12 +162,12 @@ const styles = StyleSheet.create({
     width: 3,
   },
 
-  // Driver photo — large, bottom-right, no box
+  // Driver photo — extends to right edge; wider box pushes driver leftward within it
   photoBox: {
     position: 'absolute',
     right: 0,
     bottom: 0,
-    width: 160,
+    width: 210,
     height: 125,
   },
   photo: {
@@ -160,7 +179,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 20,
-    paddingRight: 16,
+    paddingRight: 120,
     paddingTop: 18,
     paddingBottom: 6,
     gap: 14,
@@ -195,10 +214,14 @@ const styles = StyleSheet.create({
   pointsNumber: { fontSize: 26, fontWeight: '900', color: '#ffffff', letterSpacing: -1 },
   pointsLabel:  { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.35)', letterSpacing: 0.5 },
 
-  arrowIcon: {
+  arrowWrap: {
     position: 'absolute',
-    bottom: 14,
     right: 18,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+  },
+  arrowIcon: {
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,

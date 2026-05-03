@@ -1,13 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   RefreshControl, ActivityIndicator, Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { getConstructorStandings } from "../../../lib/api";
+import { getConstructorStandings, getConstructorInfo } from "../../../lib/api";
 import { getConstructorAssets } from "../../../lib/constructorAssets";
 import { useSeason } from "../../../lib/SeasonContext";
 import type { ConstructorStanding } from "../../../types/standings";
@@ -32,7 +32,26 @@ const DISPLAY_NAMES: Record<string, { top: string; bottom: string }> = {
 // ─── Constructor card ─────────────────────────────────────────────
 function ConstructorCard({ item }: { item: ConstructorStanding }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [pending, setPending] = useState(false);
   const { color: teamColor, icon } = getConstructorAssets(item.Constructor.constructorId);
+
+  const handlePress = async () => {
+    if (pending) return;
+    setPending(true);
+    try {
+      await Promise.race([
+        queryClient.prefetchQuery({
+          queryKey: ['c-info', item.Constructor.constructorId],
+          queryFn: () => getConstructorInfo(item.Constructor.constructorId),
+          staleTime: 1000 * 60 * 60,
+        }),
+        new Promise(r => setTimeout(r, 700)),
+      ]);
+    } catch {}
+    router.push(`/constructors/${item.Constructor.constructorId}`);
+    setPending(false);
+  };
   const display = DISPLAY_NAMES[item.Constructor.constructorId]
     ?? { top: '', bottom: item.Constructor.name };
 
@@ -42,7 +61,7 @@ function ConstructorCard({ item }: { item: ConstructorStanding }) {
   return (
     <TouchableOpacity
       style={styles.card}
-      onPress={() => router.push(`/constructors/${item.Constructor.constructorId}`)}
+      onPress={handlePress}
       activeOpacity={0.85}
     >
       {/* Team colour glow — soft left fade */}
@@ -80,12 +99,10 @@ function ConstructorCard({ item }: { item: ConstructorStanding }) {
                 </Text>
             }
           </View>
-          <Ionicons
-            name="arrow-forward"
-            size={18}
-            color="rgba(255,255,255,0.7)"
-            style={styles.arrowIcon}
-          />
+          {pending
+            ? <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" />
+            : <Ionicons name="arrow-forward" size={18} color="rgba(255,255,255,0.7)" style={styles.arrowIcon} />
+          }
         </View>
       </View>
     </TouchableOpacity>
@@ -98,7 +115,7 @@ export default function ConstructorStandingsScreen() {
   const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ["constructor-standings", season],
     queryFn: () => getConstructorStandings(season),
-    staleTime: 1000 * 60 * 5,
+    staleTime: Infinity,
   });
 
   if (isLoading) {

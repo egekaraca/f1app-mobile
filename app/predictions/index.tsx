@@ -96,7 +96,7 @@ function AnalysisTab({ season }: { season: string }) {
   const { racesCompleted, racesRemaining, seasonProgress, keyInsights } = predictions.seasonInsights;
 
   return (
-    <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
 
       {/* Season overview */}
       <View style={styles.card}>
@@ -442,7 +442,7 @@ function MyPicksTab() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false}>
+    <ScrollView contentContainerStyle={styles.tabContent} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
 
       {/* Season score */}
       {pastPicks.some(p => p.result) && (
@@ -658,6 +658,8 @@ function DriverPickerModal({ raceName, drivers, onSubmit, onClose }: DriverPicke
           data={drivers.filter(d => !already.includes(d.Driver.driverId))}
           keyExtractor={d => d.Driver.driverId}
           style={styles.driverList}
+          bounces={false}
+          overScrollMode="never"
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.pickerDriverRow}

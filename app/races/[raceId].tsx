@@ -12,39 +12,13 @@ import {
   getSeasonRaces, getFullRaceResults, formatRaceDateTimeLocal,
 } from '../../lib/api';
 import { getConstructorAssets } from '../../lib/constructorAssets';
+import { getCircuitMap } from '../../lib/circuitAssets';
 import {
   getMeetings, findMeeting, getMeetingSessions,
   getSessionWeather, getSessionStints, getSessionHighlights, getSessionDrivers,
   TYRE_COLORS, OpenF1Stint, OpenF1Driver,
 } from '../../lib/openf1';
 
-// ─── Circuit image map ────────────────────────────────────────────
-const CIRCUIT_IMAGES: Record<string, any> = {
-  bahrain:        require('../../assets/images/circuit/bahrain_gp_image.jpg'),
-  jeddah:         require('../../assets/images/circuit/saudi_arabia_gp_image.jpg'),
-  albert_park:    require('../../assets/images/circuit/australia_gp_image.jpg'),
-  suzuka:         require('../../assets/images/circuit/japan_gp_image.jpg'),
-  shanghai:       require('../../assets/images/circuit/china_gp_image.jpg'),
-  miami:          require('../../assets/images/circuit/miami_gp_image.jpg'),
-  imola:          require('../../assets/images/circuit/emilia_romagna_gp_image.jpg'),
-  monaco:         require('../../assets/images/circuit/monaco_gp_image.jpg'),
-  villeneuve:     require('../../assets/images/circuit/canada_gp_image.jpg'),
-  catalunya:      require('../../assets/images/circuit/spain_gp_image.jpg'),
-  red_bull_ring:  require('../../assets/images/circuit/austria_gp_image.jpg'),
-  silverstone:    require('../../assets/images/circuit/british_gp_image.jpg'),
-  hungaroring:    require('../../assets/images/circuit/hungary_gp_image.jpg'),
-  spa:            require('../../assets/images/circuit/belgium_gp_image.jpg'),
-  zandvoort:      require('../../assets/images/circuit/netherlands_gp_image.jpg'),
-  monza:          require('../../assets/images/circuit/italy_gp_image.jpg'),
-  baku:           require('../../assets/images/circuit/azerbaijan_gp_image.jpg'),
-  marina_bay:     require('../../assets/images/circuit/singapore_gp_image.jpg'),
-  americas:       require('../../assets/images/circuit/usa_gp_image.jpg'),
-  rodriguez:      require('../../assets/images/circuit/mexico_gp_image.jpg'),
-  interlagos:     require('../../assets/images/circuit/brazil_gp_image.jpg'),
-  vegas:          require('../../assets/images/circuit/las_vegas_gp_image.jpg'),
-  losail:         require('../../assets/images/circuit/qatar_gp_image.jpg'),
-  yas_marina:     require('../../assets/images/circuit/abu_dhabi_gp_image.jpg'),
-};
 
 // ─── Driver number → FIA 3-letter code fallback ───────────────────
 // Used when OpenF1 /drivers doesn't return data for a session.
@@ -292,7 +266,7 @@ function RaceControlCard({ sessionKey }: { sessionKey: number }) {
   return (
     <View style={s.card}>
       {data.map((event, i) => {
-        const accent = event.flag ? (FLAG_COLORS[event.flag] ?? '#888') : '#E10600';
+        const accent = event.flag ? (FLAG_COLORS[event.flag] ?? '#888') : '#888';
         return (
           <View key={i} style={[s.rcRow, i < data.length - 1 && s.rcRowBorder]}>
             <View style={[s.rcAccent, { backgroundColor: accent }]} />
@@ -379,7 +353,7 @@ export default function RaceDetailScreen() {
 
   const raceSession = sessions?.find(s => s.session_name === 'Race');
   const completed = race ? isCompleted(race.date) : false;
-  const circuitImage = race ? CIRCUIT_IMAGES[race.Circuit.circuitId ?? ''] : null;
+  const CircuitMap = race ? getCircuitMap(race.Circuit.circuitId ?? '') : null;
 
   // Hoist results query so both ResultsCard and TyreStrategyCard can use it
   const { data: results, isLoading: loadingResults } = useQuery({
@@ -404,7 +378,7 @@ export default function RaceDetailScreen() {
   const { dateStr: raceDateStr, timeStr: raceTimeStr } = formatRaceDateTimeLocal(race.date, race.time);
 
   return (
-    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+    <ScrollView style={s.container} contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false} bounces={false} overScrollMode="never">
 
       {/* ── Top bar: back ── */}
       <View style={[s.topBar, { paddingTop: insets.top + 12 }]}>
@@ -415,11 +389,11 @@ export default function RaceDetailScreen() {
 
       {/* ── Hero card: image + info side by side ── */}
       <View style={s.heroCard}>
-        {/* Circuit image */}
+        {/* Circuit map */}
         <View style={s.heroImageBox}>
-          {circuitImage
-            ? <Image source={circuitImage} style={s.heroImage} resizeMode="contain" />
-            : <View style={[s.heroImage, { backgroundColor: '#ddd' }]} />}
+          {CircuitMap
+            ? <CircuitMap width={110} height={110} />
+            : <View style={[s.heroImage, { backgroundColor: '#222' }]} />}
         </View>
 
         {/* Details */}
@@ -543,7 +517,7 @@ const s = StyleSheet.create({
     flexShrink: 0,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#ececec',
+    backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
   },

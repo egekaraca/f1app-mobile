@@ -1,45 +1,33 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { BlurView } from 'expo-blur';
 import { setNavAnimation } from '../lib/navDirection';
-
-// Use the device's actual screen corner radius on iOS, fallback to 44 if unavailable
-const SCREEN_CORNER_RADIUS =
-  Platform.OS === 'ios'
-    ? ((Platform.constants as any).iosDisplayCornerRadius ?? 44)
-    : 20;
 
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 type NavItem = {
   icon: IoniconName;
   activeIcon: IoniconName;
+  label: string;
   route: string;
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { icon: 'home-outline',      activeIcon: 'home',      route: '/' },
-  { icon: 'podium-outline',    activeIcon: 'podium',    route: '/standings' },
-  { icon: 'flag-outline',      activeIcon: 'flag',      route: '/races' },
-  { icon: 'analytics-outline', activeIcon: 'analytics', route: '/predictions' },
-  { icon: 'person-outline',    activeIcon: 'person',    route: '/settings' },
-];
-
-// Fixed scrim — same on every page, fades to the pill's own color
-const SCRIM_COLORS: [string, string, string] = [
-  'rgba(20,20,20,0)',
-  'rgba(20,20,20,0.28)',
-  'rgba(20,20,20,0.72)',
+  { icon: 'home-outline',      activeIcon: 'home',      label: 'Home',      route: '/' },
+  { icon: 'podium-outline',    activeIcon: 'podium',    label: 'Standings', route: '/standings' },
+  { icon: 'flag-outline',      activeIcon: 'flag',      label: 'Races',     route: '/races' },
+  { icon: 'trophy-outline',    activeIcon: 'trophy',    label: 'Fantasy',   route: '/fantasy' },
+  { icon: 'analytics-outline', activeIcon: 'analytics', label: 'Predict',   route: '/predictions' },
+  { icon: 'person-outline',    activeIcon: 'person',    label: 'Profile',   route: '/profile' },
 ];
 
 export function BottomNavBar() {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
-  const insets = useSafeAreaInsets();
+  const insets   = useSafeAreaInsets();
 
   const isActive = (route: string) => {
     if (route === '/') return pathname === '/';
@@ -47,103 +35,102 @@ export function BottomNavBar() {
   };
 
   const currentIndex = NAV_ITEMS.findIndex(item => isActive(item.route));
-
-  // Hide on sub-pages (driver detail, race detail, constructor detail, etc.)
-  if (currentIndex === -1) return null;
+  const isHidden     = currentIndex === -1;
 
   const navigate = (route: string, targetIndex: number) => {
     setNavAnimation(targetIndex > currentIndex ? 'slide_from_right' : 'slide_from_left');
     router.push(route);
   };
 
-  const pillBottom = insets.bottom + 6;
-  const scrimHeight = pillBottom + 46 + 48;
+  if (isHidden) return null;
 
   return (
-    <>
-      {/* Gradient scrim — fades screen content into nothing above the pill */}
+    <View style={styles.container} pointerEvents="box-none">
+      {/* Soft scrim so page content fades into the bar */}
       <LinearGradient
-        colors={SCRIM_COLORS}
-        locations={[0, 0.45, 1]}
-        style={[styles.scrim, { height: scrimHeight }]}
+        colors={['rgba(13,13,13,0)', 'rgba(13,13,13,0.6)', 'rgba(13,13,13,0)']}
+        style={styles.scrim}
         pointerEvents="none"
       />
 
-      {/* Floating pill */}
-      <View
-        style={[styles.wrapper, { bottom: pillBottom }]}
-        pointerEvents="box-none"
-      >
-        <BlurView intensity={85} tint="systemChromeMaterialDark" style={styles.pill}>
-          {NAV_ITEMS.map((item, index) => {
-            const active = isActive(item.route);
-            return (
-              <TouchableOpacity
-                key={item.route}
-                onPress={() => navigate(item.route, index)}
-                style={styles.navItem}
-                activeOpacity={0.7}
-              >
-                {/* Active highlight pill behind the icon */}
-                {active && <View style={styles.activePill} />}
-                <Ionicons
-                  name={active ? item.activeIcon : item.icon}
-                  size={22}
-                  color={active ? '#ffffff' : 'rgba(255,255,255,0.4)'}
-                />
-              </TouchableOpacity>
-            );
-          })}
-        </BlurView>
+      <View style={[styles.bar, { paddingBottom: insets.bottom + 4 }]}>
+        {NAV_ITEMS.map((item, index) => {
+          const active = isActive(item.route);
+          return (
+            <TouchableOpacity
+              key={item.route}
+              style={styles.item}
+              onPress={() => navigate(item.route, index)}
+              activeOpacity={0.65}
+            >
+              {active && <View style={styles.indicator} />}
+              <Ionicons
+                name={active ? item.activeIcon : item.icon}
+                size={22}
+                color={active ? '#E10600' : 'rgba(255,255,255,0.32)'}
+              />
+              <Text style={[styles.label, active && styles.labelActive]}>
+                {item.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Gradient scrim — absolute, anchored to bottom, non-interactive
-  scrim: {
+  container: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
   },
 
-  // Pill wrapper — full width but touch-transparent outside the pill
-  wrapper: {
+  scrim: {
     position: 'absolute',
     left: 0,
     right: 0,
-    alignItems: 'center',
-  },
+    bottom: 0,
+    height: 20,
+    pointerEvents: 'none',
+  } as any,
 
-  pill: {
+  bar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderRadius: SCREEN_CORNER_RADIUS,
-    paddingVertical: 10,
-    paddingHorizontal: 6,
-    gap: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.55,
-    shadowRadius: 28,
-    elevation: 24,
+    backgroundColor: '#111111',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    paddingTop: 10,
   },
 
-  navItem: {
-    width: 54,
-    height: 42,
+  item: {
+    flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+    gap: 3,
   },
 
-  activePill: {
+  indicator: {
     position: 'absolute',
-    width: 44,
-    height: 34,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    top: -10,
+    width: 24,
+    height: 2.5,
+    borderRadius: 2,
+    backgroundColor: '#E10600',
+  },
+
+  label: {
+    fontSize: 10,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.32)',
+    letterSpacing: 0.1,
+  },
+
+  labelActive: {
+    color: '#E10600',
+    fontWeight: '700',
   },
 });

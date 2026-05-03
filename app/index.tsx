@@ -1,12 +1,13 @@
 import React from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Image, ActivityIndicator,
+  StyleSheet, Image, ActivityIndicator, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import {
   getTopDrivers, getTopConstructors, getNextRace, formatRaceDateTimeLocal,
 } from '../lib/api';
@@ -14,39 +15,13 @@ import { fetchF1News } from '../lib/news';
 import { CURRENT_SEASON } from '../lib/SeasonContext';
 import { getDriverPhoto } from '../lib/driverAssets';
 import { getConstructorAssets } from '../lib/constructorAssets';
+import { getCircuitMapLight } from '../lib/circuitAssets';
 import type { DriverStanding } from '../types/standings';
 import type { Race } from '../types/race';
 import type { NewsItem } from '../lib/news';
 
 const SEASON = CURRENT_SEASON;
 
-// ─── Circuit images ───────────────────────────────────────────────
-const CIRCUIT_IMAGES: Record<string, any> = {
-  bahrain:       require('../assets/images/circuit/bahrain_gp_image.jpg'),
-  jeddah:        require('../assets/images/circuit/saudi_arabia_gp_image.jpg'),
-  albert_park:   require('../assets/images/circuit/australia_gp_image.jpg'),
-  suzuka:        require('../assets/images/circuit/japan_gp_image.jpg'),
-  shanghai:      require('../assets/images/circuit/china_gp_image.jpg'),
-  miami:         require('../assets/images/circuit/miami_gp_image.jpg'),
-  imola:         require('../assets/images/circuit/emilia_romagna_gp_image.jpg'),
-  monaco:        require('../assets/images/circuit/monaco_gp_image.jpg'),
-  villeneuve:    require('../assets/images/circuit/canada_gp_image.jpg'),
-  catalunya:     require('../assets/images/circuit/spain_gp_image.jpg'),
-  red_bull_ring: require('../assets/images/circuit/austria_gp_image.jpg'),
-  silverstone:   require('../assets/images/circuit/british_gp_image.jpg'),
-  hungaroring:   require('../assets/images/circuit/hungary_gp_image.jpg'),
-  spa:           require('../assets/images/circuit/belgium_gp_image.jpg'),
-  zandvoort:     require('../assets/images/circuit/netherlands_gp_image.jpg'),
-  monza:         require('../assets/images/circuit/italy_gp_image.jpg'),
-  baku:          require('../assets/images/circuit/azerbaijan_gp_image.jpg'),
-  marina_bay:    require('../assets/images/circuit/singapore_gp_image.jpg'),
-  americas:      require('../assets/images/circuit/usa_gp_image.jpg'),
-  rodriguez:     require('../assets/images/circuit/mexico_gp_image.jpg'),
-  interlagos:    require('../assets/images/circuit/brazil_gp_image.jpg'),
-  vegas:         require('../assets/images/circuit/las_vegas_gp_image.jpg'),
-  losail:        require('../assets/images/circuit/qatar_gp_image.jpg'),
-  yas_marina:    require('../assets/images/circuit/abu_dhabi_gp_image.jpg'),
-};
 
 // ─── 2026 car images ──────────────────────────────────────────────
 const CAR_IMAGES: Record<string, any> = {
@@ -119,7 +94,7 @@ export default function Home() {
   if (dl || rl) {
     return (
       <View style={styles.loader}>
-        <ActivityIndicator size="large" color="#E10600" />
+        <ActivityIndicator size="large" color="#111111" />
       </View>
     );
   }
@@ -140,6 +115,8 @@ export default function Home() {
       style={styles.root}
       contentContainerStyle={{ paddingBottom: 110 }}
       showsVerticalScrollIndicator={false}
+      bounces={false}
+      overScrollMode="never"
     >
       {/* ── Header ── */}
       <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
@@ -264,9 +241,11 @@ export default function Home() {
               Latest <Text style={styles.sectionBold}>News</Text>
             </Text>
           </View>
+          {/* Negative margins let the scroll bleed edge-to-edge */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
+            style={styles.newsScrollView}
             contentContainerStyle={styles.newsScroll}
           >
             {news.slice(0, 6).map((item, i) => (
@@ -284,7 +263,7 @@ function NextRaceCard({ race, onPress }: { race: Race; onPress: () => void }) {
   const { d, h, m, s } = useCountdown(race.date, race.time);
   const { dateStr } = formatRaceDateTimeLocal(race.date, race.time);
   const round = race.round ?? '?';
-  const circuitImage = CIRCUIT_IMAGES[race.Circuit.circuitId ?? ''];
+  const CircuitMap = getCircuitMapLight(race.Circuit.circuitId ?? '');
 
   const stripped = race.raceName.replace(' Grand Prix', '');
   const words = stripped.split(' ');
@@ -307,14 +286,10 @@ function NextRaceCard({ race, onPress }: { race: Race; onPress: () => void }) {
           <Text style={styles.nextRaceDate}>{dateStr}</Text>
         </View>
 
-        {/* Right: circuit layout image */}
-        {circuitImage ? (
-          <View style={styles.circuitBox}>
-            <Image source={circuitImage} style={styles.circuitImage} resizeMode="contain" />
-          </View>
-        ) : (
-          <View style={[styles.circuitBox, styles.circuitBoxEmpty]} />
-        )}
+        {/* Right: circuit map */}
+        <View style={styles.circuitBox}>
+          {CircuitMap && <CircuitMap width={110} height={110} />}
+        </View>
       </View>
 
       {/* Countdown */}
@@ -373,12 +348,41 @@ function NewsCard({ item }: { item: NewsItem }) {
   const dateLabel = item.pubDate
     ? new Date(item.pubDate).toLocaleDateString('en', { month: 'short', day: 'numeric' })
     : '';
+
+  const handlePress = () => {
+    if (item.link) Linking.openURL(item.link);
+  };
+
   return (
-    <View style={styles.newsCard}>
-      <View style={styles.newsAccent} />
-      <Text style={styles.newsTitle} numberOfLines={4}>{item.title}</Text>
-      <Text style={styles.newsMeta}>{dateLabel}</Text>
-    </View>
+    <TouchableOpacity style={styles.newsCard} onPress={handlePress} activeOpacity={0.85}>
+      {/* Thumbnail */}
+      {item.imageUrl ? (
+        <Image source={{ uri: item.imageUrl }} style={styles.newsThumb} resizeMode="cover" />
+      ) : (
+        <View style={[styles.newsThumb, styles.newsThumbPlaceholder]}>
+          <Text style={styles.newsThumbPlaceholderText}>F1</Text>
+        </View>
+      )}
+
+      {/* Content */}
+      <View style={styles.newsContent}>
+        {/* Source + date row */}
+        <View style={styles.newsMetaRow}>
+          <View style={styles.newsSourceBadge}>
+            <Text style={styles.newsSourceText}>{item.source}</Text>
+          </View>
+          <Text style={styles.newsDate}>{dateLabel}</Text>
+        </View>
+
+        <Text style={styles.newsTitle} numberOfLines={3}>{item.title}</Text>
+
+        {/* Read more arrow */}
+        <View style={styles.newsArrow}>
+          <Text style={styles.newsArrowLabel}>Read more</Text>
+          <Ionicons name="arrow-forward" size={12} color="#888" />
+        </View>
+      </View>
+    </TouchableOpacity>
   );
 }
 
@@ -422,7 +426,7 @@ const styles = StyleSheet.create({
   nextRaceEyebrow: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#E10600',
+    color: 'rgba(0,0,0,0.4)',
     letterSpacing: 2,
     marginBottom: 10,
   },
@@ -460,18 +464,10 @@ const styles = StyleSheet.create({
     width: 130,
     height: 130,
     borderRadius: 18,
-    backgroundColor: '#f0f0f0',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-  },
-  circuitBoxEmpty: {
-    backgroundColor: '#e8e8e8',
-  },
-  circuitImage: {
-    width: '100%',
-    height: '100%',
   },
 
   // Countdown
@@ -670,7 +666,7 @@ const styles = StyleSheet.create({
   seeAll: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#E10600',
+    color: 'rgba(0,0,0,0.45)',
   },
 
   // Driver standings list
@@ -732,36 +728,78 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // News horizontal scroll
+  // News horizontal scroll — bleeds edge to edge
+  newsScrollView: {
+    marginHorizontal: -20,
+  },
   newsScroll: {
-    gap: 10,
-    paddingRight: 4,
+    gap: 12,
+    paddingHorizontal: 20,
   },
   newsCard: {
-    width: 200,
+    width: 220,
     backgroundColor: '#ffffff',
     borderRadius: 18,
-    padding: 16,
-    justifyContent: 'space-between',
+    overflow: 'hidden',
   },
-  newsAccent: {
-    width: 24,
-    height: 3,
-    backgroundColor: '#E10600',
-    borderRadius: 2,
-    marginBottom: 10,
+  newsThumb: {
+    width: '100%',
+    height: 120,
+    backgroundColor: '#e0e0e0',
+  },
+  newsThumbPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  newsThumbPlaceholderText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: 'rgba(255,255,255,0.15)',
+    letterSpacing: 2,
+  },
+  newsContent: {
+    padding: 14,
+    gap: 8,
+  },
+  newsMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  newsSourceBadge: {
+    backgroundColor: '#111111',
+    borderRadius: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  newsSourceText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#ffffff',
+    letterSpacing: 0.5,
+  },
+  newsDate: {
+    fontSize: 10,
+    color: '#aaaaaa',
+    letterSpacing: 0.2,
   },
   newsTitle: {
     fontSize: 13,
     fontWeight: '600',
     color: '#111111',
     lineHeight: 18,
-    flex: 1,
   },
-  newsMeta: {
+  newsArrow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  newsArrowLabel: {
     fontSize: 10,
-    color: '#aaaaaa',
-    marginTop: 10,
-    letterSpacing: 0.3,
+    fontWeight: '600',
+    color: '#888888',
   },
 });

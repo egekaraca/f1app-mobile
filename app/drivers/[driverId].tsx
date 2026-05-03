@@ -1,13 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Image, ActivityIndicator, Modal,
+  StyleSheet, Image, ActivityIndicator, Modal, Animated,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import {
   getDriverById,
   getDriverStandingById,
@@ -15,6 +15,7 @@ import {
   getDriverCareerSummary,
   type DriverSeasonResult,
 } from '../../lib/api';
+import { getDriverStats } from '../../lib/apiSports';
 import { getDriverPhoto } from '../../lib/driverAssets';
 import { getConstructorAssets } from '../../lib/constructorAssets';
 import { useSeason, AVAILABLE_SEASONS } from '../../lib/SeasonContext';
@@ -107,11 +108,12 @@ export default function DriverDetail() {
   });
 
   // Season-specific standing — may be null if driver didn't race that year
-  const { data: standing } = useQuery({
+  const { data: standing, isFetching: standingFetching } = useQuery({
     queryKey: ['driver-standing', localSeason, driverId],
     queryFn:  () => getDriverStandingById(localSeason, driverId ?? ''),
     enabled:  !!driverId,
     staleTime: 1000 * 60 * 5,
+    placeholderData: keepPreviousData,
   });
 
   // Current season standing — always fixed to globalSeason so "Current Team" card never changes
@@ -122,18 +124,41 @@ export default function DriverDetail() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: raceResults } = useQuery({
+  const { data: raceResults, isFetching: resultsFetching } = useQuery({
     queryKey: ['driver-results', localSeason, driverId],
     queryFn:  () => getDriverSeasonResults(localSeason, driverId ?? ''),
     enabled:  !!driverId,
     staleTime: 1000 * 60 * 5,
+    placeholderData: keepPreviousData,
   });
+
+  const isFetching = standingFetching || resultsFetching;
+
+  const scrollY = useRef(new Animated.Value(0)).current;
+
+  // Fade in content when a season-switch fetch completes
+  const contentFade = useRef(new Animated.Value(1)).current;
+  const wasFetching = useRef(false);
+  useEffect(() => {
+    if (wasFetching.current && !isFetching) {
+      contentFade.setValue(0.35);
+      Animated.timing(contentFade, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+    }
+    wasFetching.current = isFetching;
+  }, [isFetching]);
 
   const { data: career } = useQuery({
     queryKey: ['driver-career', driverId],
     queryFn:  () => getDriverCareerSummary(driverId ?? ''),
     enabled:  !!driverId,
     staleTime: 1000 * 60 * 30,
+  });
+
+  const { data: apiSportsStats } = useQuery({
+    queryKey: ['driver-apisports', driverInfo?.familyName],
+    queryFn:  () => getDriverStats(driverInfo?.familyName ?? ''),
+    enabled:  !!driverInfo?.familyName,
+    staleTime: 1000 * 60 * 60 * 24,
   });
 
   if (driverLoading || !driverInfo) {
@@ -162,6 +187,9 @@ export default function DriverDetail() {
   const currentTeamName = currentStanding?.Constructors?.[0]?.name
     ?? career?.constructors.find(c => c.constructorId === currentConstructorId)?.name
     ?? '—';
+  // Join year: earliest season the driver was with this constructor
+  const currentTeamEntry = career?.constructors.find(c => c.constructorId === currentConstructorId);
+  const joinYear = currentTeamEntry?.yearRange.split('–')[0] ?? null;
   const { color: currentTeamColor, logo: CurrentTeamLogo } = getConstructorAssets(currentConstructorId);
 
   const photo     = getDriverPhoto(driver.driverId);
@@ -180,13 +208,17 @@ export default function DriverDetail() {
 
   return (
     <View style={styles.root}>
-      <ScrollView
+      <Animated.ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 120 }}
+        scrollEventThrottle={16}
+        bounces={false}
+        overScrollMode="never"
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
       >
 
         {/* ── Hero ────────────────────────────────────────────── */}
-        <View style={styles.hero}>
+        <Animated.View style={styles.hero}>
           {/* Team colour glow */}
           <View style={[styles.glow, { backgroundColor: teamColor }]} />
 
@@ -224,7 +256,10 @@ export default function DriverDetail() {
             onPress={() => setShowSeasonPicker(true)}
             activeOpacity={0.8}
           >
-            <Text style={styles.seasonBtnText}>{localSeason}</Text>
+            {isFetching
+              ? <ActivityIndicator size="small" color="rgba(255,255,255,0.7)" style={{ width: 16, height: 16 }} />
+              : <Text style={styles.seasonBtnText}>{localSeason}</Text>
+            }
             <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.7)" />
           </TouchableOpacity>
 
@@ -245,7 +280,10 @@ export default function DriverDetail() {
               )}
             </View>
           </View>
-        </View>
+        </Animated.View>
+
+        {/* ── Season-dependent content — fade in when fetch completes ── */}
+        <Animated.View style={{ opacity: contentFade }}>
 
         {/* ── Stats strip ──────────────────────────────────────── */}
         <View style={styles.statsStrip}>
@@ -337,6 +375,48 @@ export default function DriverDetail() {
           </View>
         )}
 
+        {/* ── API-Sports career stats ──────────────────────────── */}
+        {apiSportsStats && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>
+              Career <Text style={styles.cardTitleBold}>Stats</Text>
+            </Text>
+            <View style={styles.highlightsRow}>
+              <HighlightCell
+                value={String(apiSportsStats.podiums)}
+                sub="career"
+                label="PODIUMS"
+                accent={teamColor}
+              />
+              <View style={styles.highlightDivider} />
+              <HighlightCell
+                value={String(apiSportsStats.grandPrixEntered)}
+                sub="races"
+                label="GP ENTERED"
+                accent={teamColor}
+              />
+              <View style={styles.highlightDivider} />
+              <HighlightCell
+                value={String(apiSportsStats.worldChampionships)}
+                sub="titles"
+                label="CHAMPIONSHIPS"
+                accent={teamColor}
+              />
+              {apiSportsStats.highestRaceFinish != null && (
+                <>
+                  <View style={styles.highlightDivider} />
+                  <HighlightCell
+                    value={`P${apiSportsStats.highestRaceFinish}`}
+                    sub="ever"
+                    label="BEST FINISH"
+                    accent={teamColor}
+                  />
+                </>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* ── Current team ─────────────────────────────────────── */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>
@@ -351,7 +431,9 @@ export default function DriverDetail() {
             )}
             <View style={styles.teamText}>
               <Text style={styles.teamName}>{currentTeamName}</Text>
-              <Text style={styles.teamSeason}>{globalSeason}</Text>
+              {joinYear && (
+                <Text style={styles.teamSeason}>{joinYear} –</Text>
+              )}
             </View>
           </View>
         </View>
@@ -386,7 +468,8 @@ export default function DriverDetail() {
           </View>
         )}
 
-      </ScrollView>
+        </Animated.View>
+      </Animated.ScrollView>
 
       {/* ── Season picker modal ──────────────────────────────── */}
       <Modal
@@ -403,18 +486,18 @@ export default function DriverDetail() {
           {(() => {
               const seasons = career?.careerSeasons?.length
                 ? career.careerSeasons
-                : [...AVAILABLE_SEASONS].reverse();
-              const twoCol = seasons.length > 6;
+                : [localSeason];
               return (
-                <View style={[styles.pickerMenu, twoCol && styles.pickerMenuWide]}>
-                  <View style={twoCol ? styles.pickerGrid : undefined}>
+                <View style={[styles.pickerMenu, { height: Math.min(seasons.length, 4) * 46 }]}>
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                    style={styles.pickerScroll}
+                  >
                     {seasons.map(s => (
                       <TouchableOpacity
                         key={s}
-                        style={[
-                          twoCol ? styles.pickerItemCol : styles.pickerItem,
-                          s === localSeason && styles.pickerItemActive,
-                        ]}
+                        style={[styles.pickerItem, s === localSeason && styles.pickerItemActive]}
                         onPress={() => { setLocalSeason(String(s)); setShowSeasonPicker(false); }}
                         activeOpacity={0.7}
                       >
@@ -424,7 +507,14 @@ export default function DriverDetail() {
                         {s === localSeason && <Ionicons name="checkmark" size={12} color="#fff" />}
                       </TouchableOpacity>
                     ))}
-                  </View>
+                  </ScrollView>
+                  {seasons.length > 4 && (
+                    <LinearGradient
+                      colors={['rgba(28,28,30,0)', '#1c1c1e']}
+                      style={styles.pickerFade}
+                      pointerEvents="none"
+                    />
+                  )}
                 </View>
               );
             })()}
@@ -493,12 +583,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#1c1c1e',
     borderRadius: 16,
     overflow: 'hidden',
-    minWidth: 130,
+    minWidth: 150,
   },
-  pickerMenuWide:       { minWidth: 220 },
-  pickerGrid:           { flexDirection: 'row', flexWrap: 'wrap' },
+  pickerScroll:         { flex: 1 },
+  pickerFade:           { position: 'absolute', bottom: 0, left: 0, right: 0, height: 64, borderBottomLeftRadius: 16, borderBottomRightRadius: 16 },
   pickerItem:           { paddingHorizontal: 18, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  pickerItemCol:        { width: '50%', paddingHorizontal: 14, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   pickerItemActive:     { backgroundColor: 'rgba(255,255,255,0.1)' },
   pickerItemText:       { fontSize: 15, fontWeight: '600', color: 'rgba(255,255,255,0.65)' },
   pickerItemTextActive: { color: '#fff', fontWeight: '700' },

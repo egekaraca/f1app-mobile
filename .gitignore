@@ -10,6 +10,11 @@ web-build/
 expo-env.d.ts
 
 # Native
+ios/Pods/
+ios/build/
+android/build/
+android/app/build/
+android/.gradle/
 .kotlin/
 *.orig.*
 *.jks
@@ -31,6 +36,7 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
 
 # typescript

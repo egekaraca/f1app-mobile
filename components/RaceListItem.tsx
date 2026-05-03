@@ -1,35 +1,9 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Race } from '../types/race';
 import { formatRaceDateTimeLocal } from '../lib/api';
-
-const CIRCUIT_IMAGES: Record<string, any> = {
-  bahrain:        require('../assets/images/circuit/bahrain_gp_image.jpg'),
-  jeddah:         require('../assets/images/circuit/saudi_arabia_gp_image.jpg'),
-  albert_park:    require('../assets/images/circuit/australia_gp_image.jpg'),
-  suzuka:         require('../assets/images/circuit/japan_gp_image.jpg'),
-  shanghai:       require('../assets/images/circuit/china_gp_image.jpg'),
-  miami:          require('../assets/images/circuit/miami_gp_image.jpg'),
-  imola:          require('../assets/images/circuit/emilia_romagna_gp_image.jpg'),
-  monaco:         require('../assets/images/circuit/monaco_gp_image.jpg'),
-  villeneuve:     require('../assets/images/circuit/canada_gp_image.jpg'),
-  catalunya:      require('../assets/images/circuit/spain_gp_image.jpg'),
-  red_bull_ring:  require('../assets/images/circuit/austria_gp_image.jpg'),
-  silverstone:    require('../assets/images/circuit/british_gp_image.jpg'),
-  hungaroring:    require('../assets/images/circuit/hungary_gp_image.jpg'),
-  spa:            require('../assets/images/circuit/belgium_gp_image.jpg'),
-  zandvoort:      require('../assets/images/circuit/netherlands_gp_image.jpg'),
-  monza:          require('../assets/images/circuit/italy_gp_image.jpg'),
-  baku:           require('../assets/images/circuit/azerbaijan_gp_image.jpg'),
-  marina_bay:     require('../assets/images/circuit/singapore_gp_image.jpg'),
-  americas:       require('../assets/images/circuit/usa_gp_image.jpg'),
-  rodriguez:      require('../assets/images/circuit/mexico_gp_image.jpg'),
-  interlagos:     require('../assets/images/circuit/brazil_gp_image.jpg'),
-  vegas:          require('../assets/images/circuit/las_vegas_gp_image.jpg'),
-  losail:         require('../assets/images/circuit/qatar_gp_image.jpg'),
-  yas_marina:     require('../assets/images/circuit/abu_dhabi_gp_image.jpg'),
-};
+import { getCircuitMap } from '../lib/circuitAssets';
 
 type Props = { race: Race; onPress?: () => void };
 
@@ -44,65 +18,128 @@ function isThisWeekend(dateStr: string) {
 }
 
 export default function RaceListItem({ race, onPress }: Props) {
-  const { dateStr } = formatRaceDateTimeLocal(race.date, race.time);
-  const circuitImage = CIRCUIT_IMAGES[race.Circuit.circuitId ?? ''];
+  const { dateStr }  = formatRaceDateTimeLocal(race.date, race.time);
+  const CircuitMap   = getCircuitMap(race.Circuit.circuitId ?? '');
   const completed    = isCompleted(race.date);
-  const thisWeekend  = isThisWeekend(race.date);
+  const thisWeekend  = isThisWeekend(race.date) && !completed;
+
+  // ── Visual variant ──────────────────────────────────────────────
+  // thisWeekend → dark card   completed → muted card   else → normal
+  const cardStyle   = thisWeekend ? styles.cardDark    : completed ? styles.cardMuted    : styles.card;
+  const imageStyle  = thisWeekend ? styles.imageBoxDark : completed ? styles.imageBoxMuted : styles.imageBox;
+  const localStyle  = thisWeekend ? styles.localityDark : completed ? styles.localityMuted : styles.locality;
+  const nameStyle   = thisWeekend ? styles.nameDark     : completed ? styles.nameMuted     : styles.name;
+  const dateStyle   = thisWeekend ? styles.dateDark     : completed ? styles.dateMuted     : styles.date;
+  const chevronColor = thisWeekend ? 'rgba(255,255,255,0.4)' : completed ? 'rgba(0,0,0,0.15)' : 'rgba(0,0,0,0.35)';
 
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.85}>
-      <View style={styles.imageBox}>
-        {circuitImage
-          ? <Image source={circuitImage} style={styles.image} resizeMode="cover" />
-          : <View style={[styles.image, { backgroundColor: '#222' }]} />}
-        <View style={styles.imageOverlay} />
+    <TouchableOpacity style={cardStyle} onPress={onPress} activeOpacity={0.85}>
+
+      {/* Circuit map box */}
+      <View style={imageStyle}>
+        {CircuitMap && <CircuitMap width={110} height={110} />}
         <View style={styles.roundBadge}>
           <Text style={styles.roundText}>RD {race.round}</Text>
         </View>
-        {thisWeekend && !completed && (
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>THIS WEEKEND</Text>
-          </View>
-        )}
       </View>
+
+      {/* Info */}
       <View style={styles.info}>
         <View style={styles.infoLeft}>
-          <Text style={styles.locality}>{race.Circuit.Location.locality}, {race.Circuit.Location.country}</Text>
-          <Text style={styles.name} numberOfLines={1}>{race.raceName}</Text>
-          <Text style={styles.date}>{dateStr}</Text>
+          <Text style={localStyle}>
+            {race.Circuit.Location.locality}, {race.Circuit.Location.country}
+          </Text>
+          <Text style={nameStyle} numberOfLines={2}>{race.raceName}</Text>
+          <Text style={dateStyle}>{dateStr}</Text>
+
+          {thisWeekend && (
+            <View style={styles.weekendBadge}>
+              <View style={styles.weekendDot} />
+              <Text style={styles.weekendText}>THIS WEEKEND</Text>
+            </View>
+          )}
         </View>
-        <Ionicons name="arrow-forward" size={16} color={completed ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.6)'} />
+
+        {completed
+          ? <Ionicons name="checkmark" size={16} color="rgba(0,0,0,0.2)" />
+          : <Ionicons name="chevron-forward" size={16} color={chevronColor} />
+        }
       </View>
+
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#111', borderRadius: 20, overflow: 'hidden' },
-  imageBox: { height: 110, position: 'relative' },
-  image: { width: '100%', height: '100%' },
-  imageOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.3)' },
-  roundBadge: {
-    position: 'absolute', top: 10, left: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
-  roundText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 1 },
-  liveBadge: {
-    position: 'absolute', top: 10, right: 12,
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#E10600', borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
-  },
-  liveDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#fff' },
-  liveText: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
-  info: {
+  // ── Card variants ────────────────────────────────────────────────
+  card: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingVertical: 12, gap: 8,
+    backgroundColor: '#f7f7f7', borderRadius: 22,
+    overflow: 'hidden', gap: 16, paddingRight: 16,
   },
-  infoLeft: { flex: 1 },
-  locality: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.4)', marginBottom: 2 },
-  name: { fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: -0.3, marginBottom: 3 },
-  date: { fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.5)' },
+  cardDark: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#111', borderRadius: 22,
+    overflow: 'hidden', gap: 16, paddingRight: 16,
+  },
+  cardMuted: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#f0f0f0', borderRadius: 22,
+    overflow: 'hidden', gap: 16, paddingRight: 16,
+    opacity: 0.6,
+  },
+
+  // ── Image box variants ───────────────────────────────────────────
+  imageBox: {
+    width: 130, height: 130, flexShrink: 0,
+    backgroundColor: '#111',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  imageBoxDark: {
+    width: 130, height: 130, flexShrink: 0,
+    backgroundColor: '#1a1a1a',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  imageBoxMuted: {
+    width: 130, height: 130, flexShrink: 0,
+    backgroundColor: '#222',
+    alignItems: 'center', justifyContent: 'center',
+  },
+
+  // ── Round badge (same across all variants) ───────────────────────
+  roundBadge: {
+    position: 'absolute', top: 10, left: 10,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3,
+  },
+  roundText: { fontSize: 9, fontWeight: '800', color: 'rgba(255,255,255,0.7)', letterSpacing: 1 },
+
+  // ── Text — normal ────────────────────────────────────────────────
+  locality: { fontSize: 10, fontWeight: '600', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5 },
+  name:     { fontSize: 15, fontWeight: '900', color: '#111', letterSpacing: -0.4, lineHeight: 19 },
+  date:     { fontSize: 11, fontWeight: '500', color: '#888' },
+
+  // ── Text — dark card (this weekend) ─────────────────────────────
+  localityDark: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.45)', textTransform: 'uppercase', letterSpacing: 0.5 },
+  nameDark:     { fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: -0.4, lineHeight: 19 },
+  dateDark:     { fontSize: 11, fontWeight: '500', color: 'rgba(255,255,255,0.45)' },
+
+  // ── Text — muted (completed) ─────────────────────────────────────
+  localityMuted: { fontSize: 10, fontWeight: '600', color: '#bbb', textTransform: 'uppercase', letterSpacing: 0.5 },
+  nameMuted:     { fontSize: 15, fontWeight: '900', color: '#999', letterSpacing: -0.4, lineHeight: 19 },
+  dateMuted:     { fontSize: 11, fontWeight: '500', color: '#bbb' },
+
+  // ── Info row ─────────────────────────────────────────────────────
+  info:     { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  infoLeft: { flex: 1, gap: 3 },
+
+  // ── This weekend badge ───────────────────────────────────────────
+  weekendBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginTop: 6, alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  weekendDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: '#fff' },
+  weekendText: { fontSize: 9, fontWeight: '800', color: '#fff', letterSpacing: 0.5 },
 });
